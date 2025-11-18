@@ -39,7 +39,6 @@
 #include "nvs.h"
 #include "esp_log.h"
 #include "sdkconfig.h"
-#include "esp_ota_ops.h"
 #include "soc/rtc.h"
 #include "driver/gpio.h"
 #include "driver/timer.h"
@@ -58,6 +57,8 @@
 #if NVSDATA_BUFFER_ENABLE
 #include "grbl/nvs_buffer.h"
 #endif
+
+#include "fwupdate.h"
 
 #if CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/clk.h"
@@ -3824,6 +3825,8 @@ bool driver_init (void)
 #if SDCARD_ENABLE && !defined(SDCARD_SDIO)
     bus_ok = spi_bus_init(&spi_host);
 #endif
+
+    fwupdate_init();
 
 #include "grbl/plugins_init.h"
 

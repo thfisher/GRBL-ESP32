@@ -23,6 +23,7 @@ set(SRCS
  ioports_analog.c
  i2c.c
  spi.c
+ fwupdate.c
  boards/BlackBoxX32.c
  grbl/grbllib.c
  grbl/canbus.c

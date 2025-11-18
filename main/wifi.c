@@ -693,7 +693,14 @@ bool wifi_start (void)
         if(esp_wifi_set_mode(WIFI_MODE_NULL) != ESP_OK)
             return false;
 
+#if BLUETOOTH_ENABLE == 1
+// The ESP32 uses a single radio for Bluetooth and WiFi and must switch between WiFi and Bluetooth
+// modes.
+#warning "Enabling native Bluetooth and WiFi will impact the performance of both the Bluetooth and WiFi"
+        esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+#else
         esp_wifi_set_ps(WIFI_PS_NONE);
+#endif
 
         currentMode = WIFI_MODE_NULL;
     }
