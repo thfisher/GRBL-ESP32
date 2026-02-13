@@ -39,6 +39,7 @@ set(SRCS
  grbl/motion_control.c
  grbl/nuts_bolts.c
  grbl/override.c
+ grbl/probe.c
  grbl/planner.c
  grbl/protocol.c
  grbl/report.c
@@ -61,6 +62,7 @@ set(SRCS
  grbl/ngc_flowctrl.c
  grbl/regex.c
  grbl/ioports.c
+ grbl/utf8.c
  grbl/vfs.c
  grbl/fs_device.c
  grbl/kinematics/corexy.c
@@ -117,9 +119,15 @@ set(WEBUI_SOURCE
  esp_webui/fs_embedded.c
 )
 
+if("${target}" STREQUAL "esp32s3")
+set(BLUETOOTH_SOURCE
+ bluetooth_le.c
+)
+else()
 set(BLUETOOTH_SOURCE
  bluetooth.c
 )
+endif()
 
 set(SPINDLE_SOURCE
  spindle/select.c
@@ -133,6 +141,7 @@ set(SPINDLE_SOURCE
  spindle/vfd/huanyang.c
  spindle/vfd/huanyang2.c
  spindle/vfd/modvfd.c
+ spindle/vfd/nowforever.c
  spindle/vfd/spindle.c
  spindle/vfd/yl620.c
 )
@@ -171,7 +180,7 @@ set(NETWORKING_SOURCE
  networking/multipartparser.c
  networking/networking.c
  networking/fs_ram.c
- networking/fs_stream.c
+ networking/etag.c
  networking/webdav.c
  networking/ssdp.c
  networking/ftpd.c
@@ -211,12 +220,14 @@ set(MISC_PLUGINS_SOURCE
  plugins/bltouch.c
  plugins/eventout.c
  plugins/feed_override_m220.c
+ plugins/fnc_expander.c
  plugins/homing_pulloff.c
  plugins/mcp3221.c
+ plugins/mcp4725.c
  plugins/pca9654e.c
  plugins/pwm_servo_m280.c
  plugins/rgb_led_m150.c
- plugins/rgb_led_strips.c
+ plugins/tooltable.c
 )
 
 set(EMBROIDERY_SOURCE

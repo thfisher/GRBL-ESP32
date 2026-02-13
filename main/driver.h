@@ -5,7 +5,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2018-2025 Terje Io
+  Copyright (c) 2018-2026 Terje Io
   Copyright (c) 2011-2015 Sungeun K. Jeon
   Copyright (c) 2009-2011 Simen Svale Skogsrud
 
@@ -106,6 +106,13 @@ typedef struct {
     void *params;
 } i2c_task_t;
 
+#ifndef I2S_OUT_PIN_BASE
+#define I2S_OUT_PIN_BASE 64
+#endif
+
+#define SPINDLE_ENABLE_DUMMY_PIN    (I2S_OUT_PIN_BASE - 2)
+#define SPINDLE_DIRECTION_DUMMY_PIN (I2S_OUT_PIN_BASE - 1)
+
 #ifndef CONTROL_ENABLE
 #define CONTROL_ENABLE (CONTROL_HALT|CONTROL_FEED_HOLD|CONTROL_CYCLE_START)
 #endif
@@ -128,8 +135,10 @@ typedef struct {
   #include "boards/bdring_i2s_6x_v3_map.h"
 #elif defined(BOARD_BDRING_I2S_6PACK_EXT_V2)
   #include "boards/bdring_i2s_6pack_ext_v2_map.h"
-#elif defined(BOARD_ESPDUINO32)
-  #include "boards/espduino-32_wemos_d1_r32_uno_map.h"
+#elif defined(BOARD_CNC3040)
+  #include "boards/cnc3040_map.h"
+#elif defined(BOARD_CORGI)
+  #include "boards/corgi_map.h"
 #elif defined(BOARD_SOURCERABBIT_4AXIS) || defined(BOARD_SOURCERABBIT_4AXIS_12)
   #include "boards/sourcerabbit_4axis.h"
 #elif defined(BOARD_PROTONEER_3XX)
@@ -223,7 +232,7 @@ extern SemaphoreHandle_t i2cBusy;
 #error "I2C port not available!"
 #endif
 
-#if SDCARD_ENABLE && defined(SDCARD_SDIO) && SPI_ENABLE && !TRINAMIC_SPI_ENABLE
+#if SDCARD_ENABLE && SDCARD_SDIO && SPI_ENABLE && !TRINAMIC_SPI_ENABLE
 #undef SPI_ENABLE
 #define SPI_ENABLE 0
 #endif
@@ -231,10 +240,6 @@ extern SemaphoreHandle_t i2cBusy;
 // NOTE: #define SERIAL_PORT in map file if USB_SERIAL_CDC is enabled and the primary UART is not connected to a USB <> UART chip
 
 #include "grbl/driver_opts2.h"
-
-#ifndef I2S_OUT_PIN_BASE
-#define I2S_OUT_PIN_BASE 64
-#endif
 
 #ifndef USE_I2S_OUT
 #define USE_I2S_OUT 0
@@ -249,8 +254,7 @@ extern SemaphoreHandle_t i2cBusy;
 #define MODBUS_DIR_AUX 0
 #endif
 
-typedef enum
-{
+typedef enum {
     Pin_GPIO = 0,
     Pin_RMT,
     Pin_IoExpand,
