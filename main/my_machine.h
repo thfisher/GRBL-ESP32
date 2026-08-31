@@ -50,6 +50,13 @@
 //#define BOARD_GENERIC_I2S_S3          			// Generic map for ESP32-S3 with I2S shift registers for I/O expansion, untested - WIP!
 #define BOARD_MY_MACHINE              			// Add my_machine_map.h in the boards directory before enabling this!
 
+#define MY_RCOG28V     0
+#define MY_ROUTER      1
+
+#if MY_RCOG28V && MY_ROUTER
+#error can only be router or mill
+#endif
+
 // Configuration
 // Uncomment to enable, for some a value > 1 may be assigned, if so the default value is shown.
 
@@ -57,12 +64,15 @@
 #define USB_SERIAL_CDC          0 // Serial communication via native USB.
 #endif
 
+#define COOLANT_ENABLE  COOLANT_FLOOD
+
 // Spindle selection:
 // Up to four specific spindle drivers can be instantiated at a time
 // depending on N_SPINDLE and N_SYS_SPINDLE definitions in grbl/config.h.
 // If none are specified the default PWM spindle is instantiated.
 // Spindle definitions can be found in grbl/spindle_control.h.
 // More here https://github.com/grblHAL/Plugins_spindle
+#define SPINDLE0_ENABLE           SPINDLE_PWM0
 //#define SPINDLE0_ENABLE         SPINDLE_HUANYANG1
 //#define SPINDLE1_ENABLE         SPINDLE_PWM0_NODIR
 //#define SPINDLE2_ENABLE         SPINDLE_NONE
@@ -75,8 +85,12 @@
 //#define WIFI_ENABLE             1 //
 //#define WIFI_SOFTAP             1 // Use Soft AP mode for WiFi.
 //#define ETHERNET_ENABLE         1 // Ethernet streaming. Uses networking plugin.
+#if MY_RCOG28V
+#define WEBUI_ENABLE            3 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
+#define WIFI_ENABLE             1 //
+#endif
 #define BLUETOOTH_ENABLE        1 // Set to 1 for native radio, 2 for HC-05 module.
-#define SDCARD_ENABLE           1 // Run gcode programs from SD card. Set to 2 to enable YModem upload.
+#define SDCARD_ENABLE           2 // Run gcode programs from SD card. Set to 2 to enable YModem upload.
 #define LITTLEFS_ENABLE         1 // Enable flash based storage, automatically enabled if WebUI is enabled. Set to 2 to mount as root.
 //#define MPG_ENABLE              1 // Enable MPG interface. Requires a serial stream and means to switch between normal and MPG mode.
                                     // 1: Mode switching is by handshake pin.
@@ -135,7 +149,7 @@
 // NOTE: If not enough pins are available assignment will silently fail.
 //#define PROBE_ENABLE            0 // Uncomment to disable probe input.
 //#define PROBE2_ENABLE           1 // Enable second regular probe input, depending on the board the input assigned may be predefined.
-//#define TOOLSETTER_ENABLE       1 // Enable toolsetter input, depending on the board the input assigned may be predefined.
+#define TOOLSETTER_ENABLE       1 // Enable toolsetter input, depending on the board the input assigned may be predefined.
 //#define SAFETY_DOOR_ENABLE      1
 //#define MOTOR_FAULT_ENABLE      1
 //#define MOTOR_WARNING_ENABLE    1
@@ -145,10 +159,15 @@
 //#define SINGLE_BLOCK_ENABLE     1
 //#define LIMITS_OVERRIDE_ENABLE  1
 
+#define CONTROL_ENABLE (CONTROL_HALT)
+
 // If the selected board map supports more than three motors ganging and/or auto-squaring
 // of axes can be enabled here.
+#if MY_ROUTER
 #define X_GANGED            1
 #define X_AUTO_SQUARE       1
+#endif
+
 //#define Y_GANGED            1
 //#define Y_AUTO_SQUARE       1
 //#define Z_GANGED            1
