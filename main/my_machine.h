@@ -19,33 +19,36 @@
 
 // NOTE: Only one board may be enabled!
 // If none is enabled pin mappings from generic_map.h will be used
-//#define BOARD_BDRING_V3P5             //
-//#define BOARD_BDRING_V4               //
-//#define BOARD_BDRING_I2S6A            //
-//#define BOARD_BDRING_6X               //
-//#define BOARD_BDRING_I2S_6PACK_EXT_V2 //
-//#define BOARD_BDRING_6X_V3            //
-//#define BOARD_BLACKBOX_X32            // NOTE: Enable in CMakeLists.txt to set board specific defaults for the core!
-//#define BOARD_BTT_RODENT              // Uses TMC2160 drivers, untested!
-//#define BOARD_CORGI                   // 6-axis, external drivers
-//#define BOARD_CNC_BOOSTERPACK         //
-//#define BOARD_CNC3040                 //
-//#define BOARD_ESPDUINO32              //
-//#define BOARD_FYSETC_E4               //
-//#define BOARD_JACKPOT                 // Uses TMC2209 drivers, untested!
-//#define BOARD_MKS_DLC32_MAX_V1        // Has a ESP32-S3 MCU
-//#define BOARD_MKS_DLC32_V2P0          //
-//#define BOARD_MKS_TINYBEE_V1          //
-//#define BOARD_PIBOT_I2S_6_AXIS        // PiBot 6-axis I2S board
-//#define BOARD_PROTONEER_3XX           //
-//#define BOARD_ROOTCNC_PRO             //
-//#define BOARD_ROOTCNC_V2              //
-//#define BOARD_ROOTCNC_V3              //
-//#define BOARD_SOURCERABBIT_4AXIS      //
-//#define BOARD_XPRO_V5                 //
-//#define BOARD_GENERIC_S3              // Generic map for ESP32-S3, untested - WIP!
-//#define BOARD_GENERIC_I2S_S3          // Generic map for ESP32-S3 with I2S shift registers for I/O expansion, untested - WIP!
-//#define BOARD_MY_MACHINE              // Add my_machine_map.h in the boards directory before enabling this!
+//#define BOARD_BDRING_V3P5             			//
+//#define BOARD_BDRING_V4               			//
+//#define BOARD_BDRING_I2S6A            			//
+//#define BOARD_BDRING_6X               			//
+//#define BOARD_BDRING_I2S_6PACK_EXT_V2 			//
+//#define BOARD_BDRING_6X_V3            			//
+//#define BOARD_BLACKBOX_X32            			// NOTE: Enable in CMakeLists.txt to set board specific defaults for the core!
+//#define BOARD_BTT_RODENT              			// Uses TMC2160 drivers, untested!
+//#define BOARD_CORGI                   			// 6-axis, external drivers
+//#define BOARD_CNC_BOOSTERPACK         			//
+//#define BOARD_CNC3040                 			//
+//#define BOARD_ESPDUINO32              			//
+//#define BOARD_FYSETC_E4               			//
+//#define BOARD_JACKPOT                 			// Uses TMC2209 drivers, untested!
+//#define BOARD_MKS_DLC32_MAX_V1        			// Has a ESP32-S3 MCU
+//#define BOARD_MKS_DLC32_V2P0          			//
+//#define BOARD_MKS_TINYBEE_V1          			//
+//#define BOARD_OOZNEST_CNC                         // Has a ESP32-S3 MCU
+//#define BOARD_PIBOT_I2S_6_AXIS        			// PiBot 6-axis I2S board
+//#define BOARD_PIBOT_5_88_ULTRA        			// Has a ESP32-S3 MCU
+//#define BOARD_PROTONEER_3XX           			//
+//#define BOARD_ROOTCNC_PRO             			//
+//#define BOARD_ROOTCNC_V2              			//
+//#define BOARD_ROOTCNC_V3              			//
+//#define BOARD_SOURCERABBIT_RABBITBOARD_4_AXIS		// Rabbit Board 4-Axis
+//#define BOARD_SOURCERABBIT_4AXIS      			// 4-Axis CNC Motherboard v1.2 configuration
+//#define BOARD_XPRO_V5                 			//
+//#define BOARD_GENERIC_S3              			// Generic map for ESP32-S3, untested - WIP!
+//#define BOARD_GENERIC_I2S_S3          			// Generic map for ESP32-S3 with I2S shift registers for I/O expansion, untested - WIP!
+//#define BOARD_MY_MACHINE              			// Add my_machine_map.h in the boards directory before enabling this!
 
 // Configuration
 // Uncomment to enable, for some a value > 1 may be assigned, if so the default value is shown.
@@ -113,8 +116,18 @@
 //#define TOOLTABLE_ENABLE        1 // Enable file based tool table.
 
 // --- IO expanders: ---
-//#define MCP3221_ENABLE          1 // MCP3221 I2C ADC input, default address is 0x9A (MCP3221_ADDRESS).
-//#define PCA9654E_ENABLE         1 // PCA9654E I2C digital I/O, default address is 0x40 (PCA9654E_ADDRESS).
+//#define MCP3221_ENABLE          1 // MCP3221 I2C 12 bit ADC input, default address is 0x9A (MCP3221_ADDRESS).
+//#define MCP4725_ENABLE          1 // MCP4725 I2C 12 bit DAC output, default address is 0xC0 (MCP3221_ADDRESS).
+//#define MCP23017_ENABLE         1 // MCP23017 I2C 16 channel digital I/O, default address is 0x40 (MCP23017_ADDRESS).
+                                    // 1: Port A as outputs, port B as inputs.
+                                    // 2: Port A and B as outputs.
+                                    // 3: Port A and B as inputs.
+//#define PCA9654E_ENABLE         1 // PCA9654E I2C 8 channel digital out, default address is 0x40 (PCA9654E_ADDRESS).
+//#define HC595_ENABLE            1 // 74HC595 SPI shift register 8 - 32 channel digital outputs.
+                                    // 1:  8 channels.
+                                    // 2: 16 channels.
+                                    // 3: 24 channels.
+                                    // 4: 32 channels.
 //#define FNC_EXPANDER_ENABLE     1 // FluidNC STM32F103 based I/O expander (Airedale)
 
 // Optional control signals:

@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2018-2025, Terje Io
+Copyright (c) 2018-2026, Terje Io
 Copyright (c) 2022, @Henrikastro
 All rights reserved.
 
@@ -77,30 +77,60 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define ip4addr_ntoa_r(ipaddr, buf, buflen) ipaddr_ntoa_r(ipaddr, buf, buflen)
 #endif
 
-#ifndef ip4addr_aton
-#define ip4addr_aton(cp, addr) ipaddr_aton(cp, addr)
-#endif
-
+#ifndef INPUT_GPIO_INTERRUPT
 #define INPUT_GPIO_INTERRUPT 35
+#endif
+#ifndef INPUT_GPIO_MISO
 #define INPUT_GPIO_MISO 19
+#endif
+#ifndef INPUT_GPIO_MOSI
 #define INPUT_GPIO_MOSI 23
+#endif
+#ifndef INPUT_GPIO_CS
 #define INPUT_GPIO_CS 5
+#endif
+#ifndef INPUT_GPIO_SCLK
 #define INPUT_GPIO_SCLK 18
+#endif
 
 //
 
+static bool enet_enabled;
 static char if_name[NETIF_NAMESIZE] = "";
 static stream_type_t active_stream = StreamType_Null;
 static network_settings_t network, ethernet;
 static network_services_t services = {0}, allowed_services;
 static uint32_t nvs_address;
-static on_report_options_ptr on_report_options;
-static on_stream_changed_ptr on_stream_changed;
 static uint8_t mac_addr[6] = {0};
 static esp_netif_ip_info_t *ip_info = NULL;
 static network_flags_t network_status = {};
 
+static networking_get_info wifi_get_info;
+
 static char netservices[NETWORK_SERVICES_LEN] = "";
+
+static inline void set_addr (char *ip, ip4_addr_t *addr)
+{
+    memcpy(ip, addr, sizeof(ip4_addr_t));
+}
+
+static inline void get_addr (esp_ip4_addr_t *addr, char *ip)
+{
+    memcpy(addr, ip, sizeof(esp_ip4_addr_t));
+}
+
+static bool parse_ip4_addr (const char *value, ip4_addr_t *addr)
+{
+    ip_addr_t parsed;
+
+    if(ipaddr_aton(value, &parsed) != 1 || !IP_IS_V4_VAL(parsed))
+        return false;
+
+    *addr = *ip_2_ip4(&parsed);
+
+    return true;
+}
+
 
 static char *enet_ip_address (void)
 {
@@ -108,7 +138,7 @@ static char *enet_ip_address (void)
 
     sprintf(ip, IPSTR, IP2STR(&ip_info->ip));
 
- //   ip4addr_ntoa_r((const ip_addr_t *)&ip_info->ip, ip, IPADDR_STRLEN_MAX);
+ //   ip4addr_ntoa_r((const ip_addr_t *)&$, ip, IPADDR_STRLEN_MAX);
 
     return ip;
 }
@@ -136,6 +166,8 @@ static network_info_t *get_info (const char *interface)
 
             if(network_status.link_up) {
                 strcpy(info.status.ip, enet_ip_address());
+                ip4addr_ntoa_r(netif_ip_gw4(netif), info.status.gateway, IP4ADDR_STRLEN_MAX);
+                ip4addr_ntoa_r(netif_ip_netmask4(netif), info.status.mask, IP4ADDR_STRLEN_MAX);
             }
         }
 
@@ -144,42 +176,10 @@ static network_info_t *get_info (const char *interface)
     #endif
 
         return &info;
-    }
+    } else if(wifi_get_info)
+        return(wifi_get_info(interface));
 
     return NULL;
-}
-
-static void report_options (bool newopt)
-{
-    on_report_options(newopt);
-
-    if(newopt) {
-        hal.stream.write(",ETH");
-#if FTP_ENABLE
-        if(services.ftp)
-            hal.stream.write(",FTP");
-#endif
-    } else {
-
-        network_info_t *network;
-
-        if((network = get_info(if_name))) {
-
-            hal.stream.write("[MAC:");
-            hal.stream.write(network->mac);
-            hal.stream.write("]" ASCII_EOL);
-
-            hal.stream.write("[IP:");
-            hal.stream.write(network->status.ip);
-            hal.stream.write("]" ASCII_EOL);
-
-            if(active_stream == StreamType_Telnet || active_stream == StreamType_WebSocket) {
-                hal.stream.write("[NETCON:");
-                hal.stream.write(active_stream == StreamType_Telnet ? "Telnet" : "Websocket");
-                hal.stream.write("]" ASCII_EOL);
-            }
-        }
-    }
 }
 
 static void status_event_out (void *data)
@@ -211,7 +211,7 @@ static void lwIPHostTimerHandler (void *arg)
 #endif
 }
 
-static void start_services (void)
+static void start_services (void *data)
 {
 #if TELNET_ENABLE
     if(network.services.telnet && !services.telnet)
@@ -247,6 +247,17 @@ static void eth_event_handler (void *arg, esp_event_base_t event_base, int32_t e
         case ETHERNET_EVENT_CONNECTED:
             esp_eth_ioctl(*(esp_eth_handle_t *)event_data, ETH_CMD_G_MAC_ADDR, mac_addr);
             network_status.link_up = On;
+            if(network.ip_mode != IpMode_DHCP) {
+
+                static esp_netif_ip_info_t info;
+
+                get_addr(&info.ip, network.ip);
+                get_addr(&info.netmask, network.mask);
+                get_addr(&info.gw, network.gateway);
+
+                ip_info = &info;
+                task_add_immediate(start_services, NULL);
+            }
             status_event_publish((network_flags_t){ .link_up = On });
             break;
 
@@ -275,17 +286,12 @@ static void got_ip_event_handler (void *arg, esp_event_base_t event_base, int32_
     memcpy(&info, &((ip_event_got_ip_t *)event_data)->ip_info, sizeof(esp_netif_ip_info_t));
     ip_info = &info;
 
-    start_services();
-}
-
-static inline void get_addr (esp_ip4_addr_t *addr, char *ip)
-{
-    memcpy(addr, ip, sizeof(esp_ip4_addr_t));
+    start_services(NULL);
 }
 
 bool enet_start (void)
 {
-    if(esp_netif_init() != ESP_OK)
+    if(!enet_enabled || esp_netif_init() != ESP_OK)
         return false;
 
     esp_netif_t *eth_netif;
@@ -371,6 +377,9 @@ bool enet_start (void)
     ESP_ERROR_CHECK(esp_eth_start(eth_handle));
 
     netif_index_to_name(1, if_name);
+#if LWIP_NETIF_HOSTNAME
+    netif_set_hostname(netif_default, network.hostname);
+#endif
 
     network_status.interface_up = On;
     status_event_publish((network_flags_t){ .interface_up = On });
@@ -389,21 +398,33 @@ static const setting_group_detail_t ethernet_groups [] = {
     { Group_Root, Group_Networking, "Networking" }
 };
 
+FLASHMEM static bool is_eth_enabled (const setting_detail_t *setting, uint_fast16_t offset)
+{
+#if WIFI_ENABLE
+    if(setting->id == Setting_NetworkServices)
+        return enet_enabled && setting_get_int_value(setting_get_details(Setting_WifiMode, NULL), 0) == WiFiMode_NULL;
+
+    return enet_enabled;
+#else
+    return enet_enabled;
+#endif
+}
+
 static const setting_detail_t ethernet_settings[] = {
-    { Setting_NetworkServices, Group_Networking, "Network Services", NULL, Format_Bitfield, netservices, NULL, NULL, Setting_NonCoreFn, ethernet_set_services, ethernet_get_services, NULL, { .reboot_required = On } },
-    { Setting_Hostname, Group_Networking, "Hostname", NULL, Format_String, "x(64)", NULL, "64", Setting_NonCore, ethernet.hostname, NULL, NULL, { .reboot_required = On } },
-    { Setting_IpMode, Group_Networking, "IP Mode", NULL, Format_RadioButtons, "Static,DHCP,AutoIP", NULL, NULL, Setting_NonCore, &ethernet.ip_mode, NULL, NULL, { .reboot_required = On } },
-    { Setting_IpAddress, Group_Networking, "IP Address", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, NULL, { .reboot_required = On } },
-    { Setting_Gateway, Group_Networking, "Gateway", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, NULL, { .reboot_required = On } },
-    { Setting_NetMask, Group_Networking, "Netmask", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, NULL, { .reboot_required = On } },
-    { Setting_TelnetPort, Group_Networking, "Telnet port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.telnet_port, NULL, NULL, { .reboot_required = On } },
+    { Setting_NetworkServices, Group_Networking, "Network Services", NULL, Format_Bitfield, netservices, NULL, NULL, Setting_NonCoreFn, ethernet_set_services, ethernet_get_services, is_eth_enabled, { .reboot_required = On } },
+    { Setting_Hostname, Group_Networking, "Hostname", NULL, Format_String, "x(64)", NULL, "64", Setting_NonCore, ethernet.hostname, NULL, is_eth_enabled, { .reboot_required = On } },
+    { Setting_IpMode, Group_Networking, "IP Mode", NULL, Format_RadioButtons, "Static,DHCP,AutoIP", NULL, NULL, Setting_NonCore, &ethernet.ip_mode, NULL, is_eth_enabled, { .reboot_required = On } },
+    { Setting_IpAddress, Group_Networking, "IP Address", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, is_eth_enabled, { .reboot_required = On } },
+    { Setting_Gateway, Group_Networking, "Gateway", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, is_eth_enabled, { .reboot_required = On } },
+    { Setting_NetMask, Group_Networking, "Netmask", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, is_eth_enabled, { .reboot_required = On } },
+    { Setting_TelnetPort, Group_Networking, "Telnet port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.telnet_port, NULL, is_eth_enabled, { .reboot_required = On } },
 #if FTP_ENABLE
-    { Setting_FtpPort, Group_Networking, "FTP port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.ftp_port, NULL, NULL, { .reboot_required = On } },
+    { Setting_FtpPort, Group_Networking, "FTP port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.ftp_port, NULL, is_eth_enabled, { .reboot_required = On } },
 #endif
 #if HTTP_ENABLE
-    { Setting_HttpPort, Group_Networking, "HTTP port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.http_port, NULL, NULL, { .reboot_required = On } },
+    { Setting_HttpPort, Group_Networking, "HTTP port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.http_port, NULL, is_eth_enabled, { .reboot_required = On } },
 #endif
-    { Setting_WebSocketPort, Group_Networking, "Websocket port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.websocket_port, NULL, NULL, { .reboot_required = On } }
+    { Setting_WebSocketPort, Group_Networking, "Websocket port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.websocket_port, NULL, is_eth_enabled, { .reboot_required = On } }
 };
 
 #ifndef NO_SETTINGS_DESCRIPTIONS
@@ -450,9 +471,9 @@ static setting_details_t setting_details = {
 
 static status_code_t ethernet_set_ip (setting_id_t setting, char *value)
 {
-    ip_addr_t addr;
+    ip4_addr_t addr;
 
-    if(ip4addr_aton(value, &addr) != 1)
+    if(!parse_ip4_addr(value, &addr))
         return Status_InvalidStatement;
 
     status_code_t status = Status_OK;
@@ -460,15 +481,15 @@ static status_code_t ethernet_set_ip (setting_id_t setting, char *value)
     switch(setting) {
 
         case Setting_IpAddress:
-            *((ip_addr_t *)ethernet.ip) = addr;
+            set_addr(ethernet.ip, &addr);
             break;
 
         case Setting_Gateway:
-            *((ip_addr_t *)ethernet.gateway) = addr;
+            set_addr(ethernet.gateway, &addr);
             break;
 
         case Setting_NetMask:
-            *((ip_addr_t *)ethernet.mask) = addr;
+            set_addr(ethernet.mask, &addr);
             break;
 
         default:
@@ -519,31 +540,37 @@ static uint32_t ethernet_get_services (setting_id_t id)
 
 static void ethernet_settings_restore (void)
 {
+    memset(&ethernet, 0, sizeof(network_settings_t));
+
     strcpy(ethernet.hostname, NETWORK_HOSTNAME);
 
-    ip_addr_t addr;
+    ip4_addr_t addr;
 
     ethernet.ip_mode = (ip_mode_t)NETWORK_IPMODE;
 
-    if(ip4addr_aton(NETWORK_IP, &addr) == 1)
-        *((ip_addr_t *)ethernet.ip) = addr;
+    if(parse_ip4_addr(NETWORK_IP, &addr))
+        set_addr(ethernet.ip, &addr);
 
-    if(ip4addr_aton(NETWORK_GATEWAY, &addr) == 1)
-        *((ip_addr_t *)ethernet.gateway) = addr;
+    if(parse_ip4_addr(NETWORK_GATEWAY, &addr))
+        set_addr(ethernet.gateway, &addr);
 
 #if NETWORK_IPMODE == 0
-    if(ip4addr_aton(NETWORK_MASK, &addr) == 1)
-        *((ip_addr_t *)ethernet.mask) = addr;
+    if(parse_ip4_addr(NETWORK_MASK, &addr))
+        set_addr(ethernet.mask, &addr);
 #else
-    if(ip4addr_aton("255.255.255.0", &addr) == 1)
-        *((ip_addr_t *)ethernet.mask) = addr;
+    if(parse_ip4_addr("255.255.255.0", &addr))
+        set_addr(ethernet.mask, &addr);
 #endif
 
     ethernet.services.mask = 0;
     ethernet.ftp_port = NETWORK_FTP_PORT;
     ethernet.telnet_port = NETWORK_TELNET_PORT;
     ethernet.http_port = NETWORK_HTTP_PORT;
+#if HTTP_ENABLE && NETWORK_WEBSOCKET_PORT == NETWORK_HTTP_PORT
+    ethernet.websocket_port = NETWORK_HTTP_PORT + 1;
+#else
     ethernet.websocket_port = NETWORK_WEBSOCKET_PORT;
+#endif
     ethernet.services.mask = allowed_services.mask;
 
     hal.nvs.memcpy_to_nvs(nvs_address, (uint8_t *)&ethernet, sizeof(network_settings_t), true);
@@ -554,33 +581,27 @@ static void ethernet_settings_load (void)
     if(hal.nvs.memcpy_from_nvs((uint8_t *)&ethernet, nvs_address, sizeof(network_settings_t), true) != NVS_TransferResult_OK)
         ethernet_settings_restore();
 
+#if HTTP_ENABLE && WEBSOCKET_ENABLE
+    if(ethernet.websocket_port == ethernet.http_port)
+        ethernet.websocket_port = ethernet.http_port + 1;
+#endif
+
     ethernet.services.mask &= allowed_services.mask;
-}
-
-static void stream_changed (stream_type_t type)
-{
-    if(type != StreamType_SDCard)
-        active_stream = type;
-
-    if(on_stream_changed)
-        on_stream_changed(type);
 }
 
 bool enet_init (void)
 {
-    if((nvs_address = nvs_alloc(sizeof(network_settings_t)))) {
+    enet_enabled = hal.driver_cap.ethernet;
 
-        hal.driver_cap.ethernet = On;
+    if((hal.driver_cap.ethernet = !!(nvs_address = nvs_alloc(sizeof(network_settings_t))))) {
 
-        on_report_options = grbl.on_report_options;
-        grbl.on_report_options = report_options;
-
-        on_stream_changed = grbl.on_stream_changed;
-        grbl.on_stream_changed = stream_changed;
+        networking_init();
 
         settings_register(&setting_details);
 
+        wifi_get_info = networking.get_info;
         networking.get_info = get_info;
+
         allowed_services.mask = networking_get_services_list((char *)netservices).mask;
     }
 

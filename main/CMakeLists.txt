@@ -24,7 +24,10 @@ set(SRCS
  i2c.c
  spi.c
  fwupdate.c
+ neopixel_rmt.c
+ neopixel_spi.c
  boards/BlackBoxX32.c
+ boards/ooznest_cnc.c
  grbl/grbllib.c
  grbl/canbus.c
  grbl/coolant_control.c
@@ -62,13 +65,17 @@ set(SRCS
  grbl/ngc_flowctrl.c
  grbl/regex.c
  grbl/ioports.c
+ grbl/encoders.c
  grbl/utf8.c
  grbl/vfs.c
  grbl/fs_device.c
+ grbl/fs_ram.c
+ grbl/kinematics/asymmetric_ganging.c
  grbl/kinematics/corexy.c
  grbl/kinematics/wall_plotter.c
  grbl/kinematics/delta.c
  grbl/kinematics/polar.c
+ grbl/kinematics/asymmetric_ganging.c
  littlefs_hal.c
  littlefs/lfs.c
  littlefs/lfs_util.c
@@ -179,7 +186,6 @@ set(NETWORKING_SOURCE
  networking/utils.c
  networking/multipartparser.c
  networking/networking.c
- networking/fs_ram.c
  networking/etag.c
  networking/webdav.c
  networking/ssdp.c
@@ -221,9 +227,11 @@ set(MISC_PLUGINS_SOURCE
  plugins/eventout.c
  plugins/feed_override_m220.c
  plugins/fnc_expander.c
+ plugins/hc595.c
  plugins/homing_pulloff.c
  plugins/mcp3221.c
  plugins/mcp4725.c
+ plugins/mcp23017.c
  plugins/pca9654e.c
  plugins/pwm_servo_m280.c
  plugins/rgb_led_m150.c
@@ -270,11 +278,8 @@ list (APPEND SRCS ${MISC_PLUGINS_SOURCE})
 list (APPEND SRCS ${EMBROIDERY_SOURCE})
 list (APPEND SRCS ${OPENPNP_SOURCE})
 
-if(Ethernet OR ETHERNET_ENABLE EQUAL 1)
 list (APPEND SRCS ${ETHERNET_SOURCE})
-else()
 list (APPEND SRCS ${WIFI_SOURCE})
-endif()
 
 idf_component_register(SRCS "${SRCS}" INCLUDE_DIRS ".")
 
@@ -307,6 +312,6 @@ unset(Ethernet CACHE)
 unset(AddMyPlugin CACHE)
 
 #target_compile_options("${COMPONENT_LIB}" PRIVATE -Werror -Wall -Wextra -Wmissing-field-initializers)
-target_compile_options("${COMPONENT_LIB}" PRIVATE -Wimplicit-fallthrough=1 -Wno-missing-field-initializers -Wno-maybe-uninitialized -Wno-stringop-truncation)
+target_compile_options("${COMPONENT_LIB}" PRIVATE -Wimplicit-fallthrough=1 -Wno-missing-field-initializers -Wno-maybe-uninitialized -Wno-stringop-truncation -Wno-expansion-to-defined)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

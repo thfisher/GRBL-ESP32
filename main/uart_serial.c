@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2023-2025 Terje Io
+  Copyright (c) 2023-2026 Terje Io
 
   grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -584,7 +584,7 @@ IRAM_ATTR static void serialFlush (void)
 {
     UART_MUTEX_LOCK(&uart0);
 
-    _uart_flush(&uart0, false);
+    uart_ll_rxfifo_rst(uart0.dev);
 
     rxbuffer.tail = rxbuffer.head;
     rxbuffer.overflow = Off;
@@ -835,7 +835,7 @@ IRAM_ATTR static void serial1Flush (void)
 {
     UART_MUTEX_LOCK(&uart1);
 
-    _uart_flush(&uart1, false);
+    uart_ll_rxfifo_rst(uart1.dev);
 
     rxbuffer1.tail = rxbuffer1.head;
     rxbuffer1.overflow = Off;
@@ -883,9 +883,6 @@ IRAM_ATTR static bool serial1Disable (bool disable)
     UART_MUTEX_LOCK(&uart1);
 
     uart_ll_disable_intr_mask(uart1.dev, rx_int_flags);
-
-    serial1WriteS(uitoa(disable));
-    serial1WriteS(ASCII_EOL);
 
     if(!disable) {
         // Clear and enable interrupts
@@ -1031,7 +1028,7 @@ uint16_t static serial2RXFree (void)
 bool static serial2PutC (const uint8_t c)
 {
     UART_MUTEX_LOCK(&uart2);
-    serialPutC(c);
+
     while(_uart_ll_get_txfifo_count(uart2.dev) == uart2.tx_len) {
         if(!hal.stream_blocking_callback())
             return false;
@@ -1046,10 +1043,10 @@ bool static serial2PutC (const uint8_t c)
 
 void static serial2WriteS (const char *data)
 {
-    char c, *ptr = (char *)data;
+    uint8_t c, *ptr = (uint8_t *)data;
 
     while((c = *ptr++) != '\0')
-        serial2PutC((uint8_t)c);
+        serial2PutC(c);
 }
 
 //
@@ -1057,7 +1054,7 @@ void static serial2WriteS (const char *data)
 //
 void static serial2Write (const uint8_t *s, uint16_t length)
 {
-    char *uint8_t = (uint8_t *)s;
+    uint8_t *ptr = (uint8_t *)s;
 
     while(length--)
         serial2PutC(*ptr++);
@@ -1074,7 +1071,7 @@ int32_t static serial2Read (void)
         return -1; // no data available else EOF
     }
 
-    int32_tdata = (int32_t)rxbuffer2.data[bptr++];  // Get next character, increment tmp pointer
+    int32_t data = (int32_t)rxbuffer2.data[bptr++];  // Get next character, increment tmp pointer
     rxbuffer2.tail = bptr & (RX_BUFFER_SIZE - 1);   // and update pointer
 
     UART_MUTEX_UNLOCK(&uart2);
@@ -1086,7 +1083,7 @@ IRAM_ATTR static void serial2Flush (void)
 {
     UART_MUTEX_LOCK(&uart2);
 
-    _uart_flush(&uart2, false);
+    uart_ll_rxfifo_rst(uart2.dev);
 
     rxbuffer2.tail = rxbuffer2.head;
     rxbuffer2.overflow = Off;

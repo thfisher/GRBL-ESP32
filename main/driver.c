@@ -64,7 +64,18 @@
 #include "esp32s3/clk.h"
 #if USB_SERIAL_CDC
 #include "usb_serial.h"
-#endif // USB_SERIAL_CDC
+status_code_t enter_bootloader (sys_state_t state, char *args)
+{
+    (void)state;
+    (void)args;
+
+    hal.stream.write("[MSG:Warning: Entering ESP32 Bootloader]" ASCII_EOL);
+    hal.delay_ms(100, NULL);
+
+    return usb_serialEnterBootloader() ? Status_OK : Status_InvalidStatement;
+}
+
+#endif
 #endif
 
 #if WIFI_ENABLE
@@ -153,7 +164,7 @@ static pwm_spindle_t pwm_spindle = {
     .channel = {
         .gpio_num = SPINDLE_PWM_PIN,
 #if CONFIG_IDF_TARGET_ESP32S3
-        .speed_mode = LEDC_SPEED_MODE_MAX,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
 #else
         .speed_mode = LEDC_HIGH_SPEED_MODE,
 #endif
@@ -189,7 +200,7 @@ static pwm_spindle_t pwm_spindle1 = {
     .channel = {
         .gpio_num = SPINDLE1_PWM_PIN,
 #if CONFIG_IDF_TARGET_ESP32S3
-        .speed_mode = LEDC_SPEED_MODE_MAX,
+        .speed_mode = LEDC_LOW_SPEED_MODE,
 #else
         .speed_mode = LEDC_HIGH_SPEED_MODE,
 #endif
@@ -425,28 +436,40 @@ static output_signal_t outputpin[] = {
     { .id = Output_DirZ_2,         .pin = Z2_DIRECTION_PIN,      .group = PinGroup_StepperDir },
 #endif
 #ifdef MOTOR_CS_PIN
-    { .id = Output_MotorChipSelect,   .pin = MOTOR_CS_PIN,      .group = PinGroup_MotorChipSelect },
+    { .id = Output_MotorChipSelect,   .pin = MOTOR_CS_PIN,       .group = PinGroup_MotorChipSelect },
 #endif
 #ifdef MOTOR_CSX_PIN
-    { .id = Output_MotorChipSelectX,  .pin = MOTOR_CSX_PIN,     .group = PinGroup_MotorChipSelect },
+    { .id = Output_MotorChipSelectX,  .pin = MOTOR_CSX_PIN,      .group = PinGroup_MotorChipSelect },
 #endif
 #ifdef MOTOR_CSY_PIN
-    { .id = Output_MotorChipSelectY,  .pin = MOTOR_CSY_PIN,     .group = PinGroup_MotorChipSelect },
+    { .id = Output_MotorChipSelectY,  .pin = MOTOR_CSY_PIN,      .group = PinGroup_MotorChipSelect },
 #endif
 #ifdef MOTOR_CSZ_PIN
-    { .id = Output_MotorChipSelectZ,  .pin = MOTOR_CSZ_PIN,     .group = PinGroup_MotorChipSelect },
+    { .id = Output_MotorChipSelectZ,  .pin = MOTOR_CSZ_PIN,      .group = PinGroup_MotorChipSelect },
 #endif
 #ifdef MOTOR_CSM3_PIN
-    { .id = Output_MotorChipSelectM3, .pin = MOTOR_CSM3_PIN,    .group = PinGroup_MotorChipSelect },
+    { .id = Output_MotorChipSelectM3, .pin = MOTOR_CSM3_PIN,     .group = PinGroup_MotorChipSelect },
 #endif
 #ifdef MOTOR_CSM4_PIN
-    { .id = Output_MotorChipSelectM4, .pin = MOTOR_CSM4_PIN,    .group = PinGroup_MotorChipSelect },
+    { .id = Output_MotorChipSelectM4, .pin = MOTOR_CSM4_PIN,     .group = PinGroup_MotorChipSelect },
 #endif
 #ifdef MOTOR_CSM5_PIN
-    { .id = Output_MotorChipSelectM5, .pin = MOTOR_CSM5_PIN,    .group = PinGroup_MotorChipSelect },
+    { .id = Output_MotorChipSelectM5, .pin = MOTOR_CSM5_PIN,     .group = PinGroup_MotorChipSelect },
 #endif
 #ifdef SD_CS_PIN
-    { .id = Output_SdCardCS,          .pin = SD_CS_PIN,        .group = PinGroup_SdCard },
+    { .id = Output_SdCardCS,          .pin = SD_CS_PIN,          .group = PinGroup_SPICS },
+#endif
+#ifdef SPI_CS0_PIN
+    { .id = Output_SPICS0,            .pin = SPI_CS0_PIN,        .group = PinGroup_SPICS },
+#endif
+#ifdef SPI_CS1_PIN
+    { .id = Output_SPICS1,            .pin = SPI_CS1_PIN,        .group = PinGroup_SPICS },
+#endif
+#ifdef SPI_CS2_PIN
+    { .id = Output_SPICS2,            .pin = SPI_CS2_PIN,        .group = PinGroup_SPICS },
+#endif
+#ifdef SPI_CS3_PIN
+    { .id = Output_SPICS3,            .pin = SPI_CS3_PIN,       .group = PinGroup_SPICS },
 #endif
 #ifdef MODBUS_DIRECTION_PIN
     { .id = Output_Aux0,           .pin = MODBUS_DIRECTION_PIN,  .group = PinGroup_AuxOutput },
@@ -517,11 +540,6 @@ static struct {
 
 #ifdef USE_EXPANDERS
 static xbar_t *iox_out[8] = {};
-#endif
-
-#ifdef LED_PIN
-neopixel_cfg_t neopixel = { .intensity = 255 };
-void neopixels_write (void);
 #endif
 
 #ifdef SAFETY_DOOR_PIN
@@ -1176,66 +1194,66 @@ inline IRAM_ATTR static void set_step_outputs (axes_signals_t step_out1)
 #endif
 #if Z_GANGED && defined(Z2_STEP_PIN)
                     case Z_AXIS:
-    					rmt_ll_tx_reset_pointer(&RMT, Z2_MOTOR_IDX);
-    					rmt_ll_tx_start(&RMT, Z2_MOTOR_IDX);
+                        rmt_ll_tx_reset_pointer(&RMT, Z2_MOTOR_IDX);
+                        rmt_ll_tx_start(&RMT, Z2_MOTOR_IDX);
                         break;
 #endif
                 }
 
                 if(step_out1.bits & mask) switch(idx) {
 
-					case X_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, X_AXIS);
-						rmt_ll_tx_start(&RMT, X_AXIS);
-						break;
+                    case X_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, X_AXIS);
+                        rmt_ll_tx_start(&RMT, X_AXIS);
+                        break;
 
-					case Y_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, Y_AXIS);
-						rmt_ll_tx_start(&RMT, Y_AXIS);
-						break;
+                    case Y_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, Y_AXIS);
+                        rmt_ll_tx_start(&RMT, Y_AXIS);
+                        break;
 #ifdef Z_STEP_PIN
-					case Z_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, Z_AXIS);
-						rmt_ll_tx_start(&RMT, Z_AXIS);
-						break;
+                    case Z_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, Z_AXIS);
+                        rmt_ll_tx_start(&RMT, Z_AXIS);
+                        break;
 #endif
 #ifdef A_AXIS
-					case A_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, A_AXIS);
-						rmt_ll_tx_start(&RMT, A_AXIS);
-						break;
+                    case A_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, A_AXIS);
+                        rmt_ll_tx_start(&RMT, A_AXIS);
+                        break;
 #endif
 #ifdef B_AXIS
-					case B_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, B_AXIS);
-						rmt_ll_tx_start(&RMT, B_AXIS);
-						break;
+                    case B_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, B_AXIS);
+                        rmt_ll_tx_start(&RMT, B_AXIS);
+                        break;
 #endif
 #ifdef C_AXIS
-					case C_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, C_AXIS);
-						rmt_ll_tx_start(&RMT, C_AXIS);
-						break;
+                    case C_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, C_AXIS);
+                        rmt_ll_tx_start(&RMT, C_AXIS);
+                        break;
 #endif
 #ifdef U_AXIS
-					case U_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, U_AXIS);
-						rmt_ll_tx_start(&RMT, U_AXIS);
-						break;
+                    case U_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, U_AXIS);
+                        rmt_ll_tx_start(&RMT, U_AXIS);
+                        break;
 #endif
 #ifdef V_AXIS
-					case V_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, V_AXIS);
-						rmt_ll_tx_start(&RMT, V_AXIS);
-						break;
+                    case V_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, V_AXIS);
+                        rmt_ll_tx_start(&RMT, V_AXIS);
+                        break;
 #endif
 #ifdef W_AXIS
-					case W_AXIS:
-						rmt_ll_tx_reset_pointer(&RMT, W_AXIS);
-						rmt_ll_tx_start(&RMT, W_AXIS);
-						break;
+                    case W_AXIS:
+                        rmt_ll_tx_reset_pointer(&RMT, W_AXIS);
+                        rmt_ll_tx_start(&RMT, W_AXIS);
+                        break;
 #endif
-				}
+                }
             }
             mask <<= 1;
         }
@@ -1330,16 +1348,16 @@ inline IRAM_ATTR static void set_step_outputs (axes_signals_t step_out)
 {
 #if STEP_INJECT_ENABLE
 /*
-	uint32_t mask;
+    uint32_t mask;
 
-	if(step_pulse.inject.out.z) {
-		mask = 1 << (Z_AXIS * 3);
-		if(RMT.int_raw.val & mask) {
-			step_pulse.inject.out.z = Off;
-			RMT.int_raw.val = mask;
-		}
-		step_pulse.inject.axes.bits = step_pulse.inject.claimed.bits;
-	}
+    if(step_pulse.inject.out.z) {
+        mask = 1 << (Z_AXIS * 3);
+        if(RMT.int_raw.val & mask) {
+            step_pulse.inject.out.z = Off;
+            RMT.int_raw.val = mask;
+        }
+        step_pulse.inject.axes.bits = step_pulse.inject.claimed.bits;
+    }
 */
     axes_signals_t axes = { .bits = step_pulse.inject.axes.bits };
 
@@ -1370,11 +1388,11 @@ inline IRAM_ATTR static void set_step_outputs (axes_signals_t step_out)
                     break;
 #if defined(Z_STEP_PIN)
                 case Z_AXIS:
-					rmt_ll_tx_reset_pointer(&RMT, Z_AXIS);
-					rmt_ll_tx_start(&RMT, Z_AXIS);
+                    rmt_ll_tx_reset_pointer(&RMT, Z_AXIS);
+                    rmt_ll_tx_start(&RMT, Z_AXIS);
   #if Z_GANGED && defined(Z2_STEP_PIN)
-					rmt_ll_tx_reset_pointer(&RMT, Z2_MOTOR_IDX);
-					rmt_ll_tx_start(&RMT, Z2_MOTOR_IDX);
+                    rmt_ll_tx_reset_pointer(&RMT, Z2_MOTOR_IDX);
+                    rmt_ll_tx_start(&RMT, Z2_MOTOR_IDX);
   #endif
                     break;
 #endif
@@ -1397,22 +1415,22 @@ inline IRAM_ATTR static void set_step_outputs (axes_signals_t step_out)
                     break;
 #endif
 #ifdef U_AXIS
-				case U_AXIS:
-					rmt_ll_tx_reset_pointer(&RMT, U_AXIS);
-					rmt_ll_tx_start(&RMT, U_AXIS);
-					break;
+                case U_AXIS:
+                    rmt_ll_tx_reset_pointer(&RMT, U_AXIS);
+                    rmt_ll_tx_start(&RMT, U_AXIS);
+                    break;
 #endif
 #ifdef V_AXIS
-				case V_AXIS:
-					rmt_ll_tx_reset_pointer(&RMT, V_AXIS);
-					rmt_ll_tx_start(&RMT, V_AXIS);
-					break;
+                case V_AXIS:
+                    rmt_ll_tx_reset_pointer(&RMT, V_AXIS);
+                    rmt_ll_tx_start(&RMT, V_AXIS);
+                    break;
 #endif
 #ifdef W_AXIS
-				case W_AXIS:
-					rmt_ll_tx_reset_pointer(&RMT, W_AXIS);
-					rmt_ll_tx_start(&RMT, W_AXIS);
-					break;
+                case W_AXIS:
+                    rmt_ll_tx_reset_pointer(&RMT, W_AXIS);
+                    rmt_ll_tx_start(&RMT, W_AXIS);
+                    break;
 #endif
             }
             mask <<= 1;
@@ -1509,7 +1527,7 @@ static void stepperClaimMotor (uint_fast8_t axis_id, bool claim)
 
 void stepperOutputStep (axes_signals_t step_out, axes_signals_t dir_out)
 {
-	if(step_out.bits) {
+    if(step_out.bits) {
 
         uint_fast8_t idx = N_AXIS - 1, mask = 1 << (N_AXIS - 1);
         axes_signals_t axes = { .bits = step_out.bits };
@@ -1525,87 +1543,87 @@ void stepperOutputStep (axes_signals_t step_out, axes_signals_t dir_out)
 
                 switch(idx) {
 
-					case X_AXIS:
-						DIGITAL_OUT(X_DIRECTION_PIN, dir_out.x);
+                    case X_AXIS:
+                        DIGITAL_OUT(X_DIRECTION_PIN, dir_out.x);
 #if X_GANGED
-						DIGITAL_OUT(X2_DIRECTION_PIN, dir_out.x ^ settings.steppers.ganged_dir_invert.x);
+                        DIGITAL_OUT(X2_DIRECTION_PIN, dir_out.x ^ settings.steppers.ganged_dir_invert.x);
 #endif
-			            rmt_ll_tx_reset_pointer(&RMT, X_AXIS);
-			            rmt_ll_tx_start(&RMT, X_AXIS);
+                        rmt_ll_tx_reset_pointer(&RMT, X_AXIS);
+                        rmt_ll_tx_start(&RMT, X_AXIS);
 #if X_GANGED
-			            rmt_ll_tx_reset_pointer(&RMT, X2_MOTOR_IDX);
-			            rmt_ll_tx_start(&RMT, X2_MOTOR_IDX);
+                        rmt_ll_tx_reset_pointer(&RMT, X2_MOTOR_IDX);
+                        rmt_ll_tx_start(&RMT, X2_MOTOR_IDX);
 #endif
-						break;
+                        break;
 
-					case Y_AXIS:
-						DIGITAL_OUT(Y_DIRECTION_PIN, dir_out.y);
+                    case Y_AXIS:
+                        DIGITAL_OUT(Y_DIRECTION_PIN, dir_out.y);
 #if Y_GANGED
-						DIGITAL_OUT(Y2_DIRECTION_PIN, dir_out.y ^ settings.steppers.ganged_dir_invert.y);
+                        DIGITAL_OUT(Y2_DIRECTION_PIN, dir_out.y ^ settings.steppers.ganged_dir_invert.y);
 #endif
-			            rmt_ll_tx_reset_pointer(&RMT, Y_AXIS);
-			            rmt_ll_tx_start(&RMT, Y_AXIS);
+                        rmt_ll_tx_reset_pointer(&RMT, Y_AXIS);
+                        rmt_ll_tx_start(&RMT, Y_AXIS);
 #if Y_GANGED
-			            rmt_ll_tx_reset_pointer(&RMT, Y2_MOTOR_IDX);
-			            rmt_ll_tx_start(&RMT, Y2_MOTOR_IDX);
+                        rmt_ll_tx_reset_pointer(&RMT, Y2_MOTOR_IDX);
+                        rmt_ll_tx_start(&RMT, Y2_MOTOR_IDX);
 #endif
-						break;
+                        break;
 
 #ifdef Z_STEP_PIN
-					case Z_AXIS:
-						DIGITAL_OUT(Z_DIRECTION_PIN, dir_out.z);
+                    case Z_AXIS:
+                        DIGITAL_OUT(Z_DIRECTION_PIN, dir_out.z);
   #if Z_GANGED
-						DIGITAL_OUT(Z2_DIRECTION_PIN, dir_out.z ^ settings.steppers.ganged_dir_invert.z);
+                        DIGITAL_OUT(Z2_DIRECTION_PIN, dir_out.z ^ settings.steppers.ganged_dir_invert.z);
   #endif
-						rmt_ll_tx_reset_pointer(&RMT, Z_AXIS);
-						rmt_ll_tx_start(&RMT, Z_AXIS);
+                        rmt_ll_tx_reset_pointer(&RMT, Z_AXIS);
+                        rmt_ll_tx_start(&RMT, Z_AXIS);
   #if Z_GANGED
-						rmt_ll_tx_reset_pointer(&RMT, Z2_MOTOR_IDX);
-						rmt_ll_tx_start(&RMT, Z2_MOTOR_IDX);
+                        rmt_ll_tx_reset_pointer(&RMT, Z2_MOTOR_IDX);
+                        rmt_ll_tx_start(&RMT, Z2_MOTOR_IDX);
   #endif
-						break;
+                        break;
 #endif
 #ifdef A_AXIS
-					case A_AXIS:
-						DIGITAL_OUT(A_DIRECTION_PIN, dir_out.a);
-			            rmt_ll_tx_reset_pointer(&RMT, A_AXIS);
-			            rmt_ll_tx_start(&RMT, A_AXIS);
-						break;
+                    case A_AXIS:
+                        DIGITAL_OUT(A_DIRECTION_PIN, dir_out.a);
+                        rmt_ll_tx_reset_pointer(&RMT, A_AXIS);
+                        rmt_ll_tx_start(&RMT, A_AXIS);
+                        break;
 #endif
 #ifdef B_AXIS
-					case B_AXIS:
-						DIGITAL_OUT(B_DIRECTION_PIN, dir_out.b);
-			            rmt_ll_tx_reset_pointer(&RMT, B_AXIS);
-			            rmt_ll_tx_start(&RMT, B_AXIS);
-						break;
+                    case B_AXIS:
+                        DIGITAL_OUT(B_DIRECTION_PIN, dir_out.b);
+                        rmt_ll_tx_reset_pointer(&RMT, B_AXIS);
+                        rmt_ll_tx_start(&RMT, B_AXIS);
+                        break;
 #endif
 #ifdef C_AXIS
-					case C_AXIS:
-						DIGITAL_OUT(C_DIRECTION_PIN, dir_out.c);
-			            rmt_ll_tx_reset_pointer(&RMT, C_AXIS);
-			            rmt_ll_tx_start(&RMT, C_AXIS);
-						break;
+                    case C_AXIS:
+                        DIGITAL_OUT(C_DIRECTION_PIN, dir_out.c);
+                        rmt_ll_tx_reset_pointer(&RMT, C_AXIS);
+                        rmt_ll_tx_start(&RMT, C_AXIS);
+                        break;
 #endif
 #ifdef U_AXIS
-					case U_AXIS:
-						DIGITAL_OUT(U_DIREWTION_PIN, dir_out.u);
-			            rmt_ll_tx_reset_pointer(&RMT, U_AXIS);
-			            rmt_ll_tx_start(&RMT, U_AXIS);
-						break;
+                    case U_AXIS:
+                        DIGITAL_OUT(U_DIREWTION_PIN, dir_out.u);
+                        rmt_ll_tx_reset_pointer(&RMT, U_AXIS);
+                        rmt_ll_tx_start(&RMT, U_AXIS);
+                        break;
 #endif
 #ifdef V_AXIS
-					case V_AXIS:
-						DIGITAL_OUT(V_DIREWTION_PIN, dir_out.v);
-			            rmt_ll_tx_reset_pointer(&RMT, V_AXIS);
-			            rmt_ll_tx_start(&RMT, V_AXIS);
-						break;
+                    case V_AXIS:
+                        DIGITAL_OUT(V_DIREWTION_PIN, dir_out.v);
+                        rmt_ll_tx_reset_pointer(&RMT, V_AXIS);
+                        rmt_ll_tx_start(&RMT, V_AXIS);
+                        break;
 #endif
 #ifdef W_AXIS
-					case W_AXIS:
-						DIGITAL_OUT(W_DIREWTION_PIN, dir_out.w);
-			            rmt_ll_tx_reset_pointer(&RMT, W_AXIS);
-			            rmt_ll_tx_start(&RMT, W_AXIS);
-						break;
+                    case W_AXIS:
+                        DIGITAL_OUT(W_DIREWTION_PIN, dir_out.w);
+                        rmt_ll_tx_reset_pointer(&RMT, W_AXIS);
+                        rmt_ll_tx_start(&RMT, W_AXIS);
+                        break;
 #endif
                 }
             }
@@ -2303,34 +2321,33 @@ bool spindleConfig (spindle_ptrs_t *spindle)
     if(spindle == NULL)
         return false;
 
-    if((spindle->cap.variable = !settings.pwm_spindle.flags.pwm_disable && settings.pwm_spindle.rpm_max > settings.pwm_spindle.rpm_min)) {
+    if(pwm_spindle.timer.freq_hz != (uint32_t)settings.pwm_spindle.pwm_freq) {
+        pwm_spindle.timer.freq_hz = (uint32_t)settings.pwm_spindle.pwm_freq;
+        if(pwm_spindle.timer.freq_hz <= 100) {
+#if SOC_LEDC_TIMER_BIT_WIDE_NUM > 14
+            if(pwm_spindle.timer.duty_resolution != LEDC_TIMER_16_BIT) {
+                pwm_spindle.timer.duty_resolution = LEDC_TIMER_16_BIT;
+                ledc_timer_config(&pwm_spindle.timer);
+            }
+#else
+            if(pwm_spindle.timer.duty_resolution != LEDC_TIMER_14_BIT) {
+                pwm_spindle.timer.duty_resolution = LEDC_TIMER_14_BIT;
+                ledc_timer_config(&pwm_spindle.timer);
+            }
+#endif
+        } else if(pwm_spindle.timer.duty_resolution != LEDC_TIMER_10_BIT) {
+            pwm_spindle.timer.duty_resolution = LEDC_TIMER_10_BIT;
+            ledc_timer_config(&pwm_spindle.timer);
+        }
+    }
+
+    pwm_spindle.pwm_max_value = (1UL << pwm_spindle.timer.duty_resolution) - 1;
+    pwm_spindle.spindle_pwm.offset = (settings.pwm_spindle.invert.pwm ? -1 : 1);
+
+    if(spindle_precompute_pwm_values(spindle, &pwm_spindle.spindle_pwm, &settings.pwm_spindle, pwm_spindle.pwm_max_value * settings.pwm_spindle.pwm_freq)) {
 
         spindle->esp32_off = spindleOff;
         spindle->set_state = spindleSetStateVariable;
-
-        if(pwm_spindle.timer.freq_hz != (uint32_t)settings.pwm_spindle.pwm_freq) {
-            pwm_spindle.timer.freq_hz = (uint32_t)settings.pwm_spindle.pwm_freq;
-            if(pwm_spindle.timer.freq_hz <= 100) {
-#if SOC_LEDC_TIMER_BIT_WIDE_NUM > 14
-                if(pwm_spindle.timer.duty_resolution != LEDC_TIMER_16_BIT) {
-                    pwm_spindle.timer.duty_resolution = LEDC_TIMER_16_BIT;
-                    ledc_timer_config(&pwm_spindle.timer);
-                }
-#else
-                if(pwm_spindle.timer.duty_resolution != LEDC_TIMER_14_BIT) {
-                    pwm_spindle.timer.duty_resolution = LEDC_TIMER_14_BIT;
-                    ledc_timer_config(&pwm_spindle.timer);
-                }
-#endif
-            } else if(pwm_spindle.timer.duty_resolution != LEDC_TIMER_10_BIT) {
-                pwm_spindle.timer.duty_resolution = LEDC_TIMER_10_BIT;
-                ledc_timer_config(&pwm_spindle.timer);
-            }
-        }
-
-        pwm_spindle.pwm_max_value = (1UL << pwm_spindle.timer.duty_resolution) - 1;
-        pwm_spindle.spindle_pwm.offset = (settings.pwm_spindle.invert.pwm ? -1 : 1);
-        spindle_precompute_pwm_values(spindle, &pwm_spindle.spindle_pwm, &settings.pwm_spindle, pwm_spindle.pwm_max_value * settings.pwm_spindle.pwm_freq);
 
         ledc_set_freq(pwm_spindle.timer.speed_mode, pwm_spindle.timer.timer_num, pwm_spindle.timer.freq_hz);
 
@@ -2416,7 +2433,7 @@ IRAM_ATTR inline static void spindle1_off (spindle_ptrs_t *spindle)
     } else {
         DIGITAL_OUT(SPINDLE1_ENABLE_PIN, pwm_spindle1.config->cfg.invert.on);
     }
-#else
+#elif DRIVER_SPINDLE1_ENABLE & SPINDLE_ENA
     DIGITAL_OUT(SPINDLE1_ENABLE_PIN, pwm_spindle1.config->cfg.invert.on);
 #endif
 }
@@ -2434,7 +2451,7 @@ IRAM_ATTR inline static void spindle1_on (spindle_ptrs_t *spindle)
     } else {
         DIGITAL_OUT(SPINDLE1_ENABLE_PIN, !pwm_spindle1.config->cfg.invert.on);
     }
-#else
+#elif DRIVER_SPINDLE1_ENABLE & SPINDLE_ENA
     DIGITAL_OUT(SPINDLE1_ENABLE_PIN, !pwm_spindle1.config->cfg.invert.on);
 #endif
 }
@@ -2457,7 +2474,7 @@ IRAM_ATTR static void spindle1SetState (spindle_ptrs_t *spindle, spindle_state_t
     }
 }
 
-#if DRIVER_SPINDLE_ENABLE & SPINDLE_PWM
+#if DRIVER_SPINDLE1_ENABLE & SPINDLE_PWM
 
 // Variable spindle control functions
 
@@ -2481,7 +2498,7 @@ IRAM_ATTR static void spindle1SetSpeed (spindle_ptrs_t *spindle, uint_fast16_t p
     if(pwm_value == spindle->context.pwm->off_value) {
 
         if(spindle->context.pwm->flags.rpm_controlled) {
-            spindle_off(spindle);
+            spindle1_off(spindle);
             if(spindle->context.pwm->flags.laser_off_overdrive) {
                 ledc_set_duty(pwm_spindle1.channel.speed_mode, pwm_spindle1.channel.channel, spindle->context.pwm->settings->invert.pwm ? pwm_spindle1.pwm_max_value - pwm_value : pwm_value);
                 ledc_update_duty(pwm_spindle1.channel.speed_mode, pwm_spindle1.channel.channel);
@@ -2499,7 +2516,7 @@ IRAM_ATTR static void spindle1SetSpeed (spindle_ptrs_t *spindle, uint_fast16_t p
          ledc_update_duty(pwm_spindle1.channel.speed_mode, pwm_spindle1.channel.channel);
 #endif
          if(!spindle->context.pwm->flags.enable_out && spindle->context.pwm->flags.rpm_controlled)
-             spindle_on(spindle);
+             spindle1_on(spindle);
     }
 }
 
@@ -2524,9 +2541,9 @@ IRAM_ATTR static void spindle1SetStateVariable (spindle_ptrs_t *spindle, spindle
         spindle1_off(spindle);
         pwm1_off(spindle);
     } else {
-#ifdef SPINDLE_DIRECTION_PIN
+#ifdef SPINDLE1_DIRECTION_PIN
         if(!spindle->context.pwm->flags.cloned)
-            spindle_dir(state.ccw);
+            spindle1_dir(state.ccw);
 #endif
         if(rpm == 0.0f && spindle->context.pwm->flags.rpm_controlled)
             spindle1_off(spindle);
@@ -2542,45 +2559,43 @@ bool spindle1Config (spindle_ptrs_t *spindle)
     if(spindle == NULL)
         return false;
 
-    if((spindle->cap.variable = !pwm_spindle1.config->cfg.flags.pwm_disable && pwm_spindle1.config->cfg.rpm_max > pwm_spindle1.config->cfg.rpm_min)) {
+    if(pwm_spindle1.timer.freq_hz != (uint32_t)pwm_spindle1.config->cfg.pwm_freq) {
+        pwm_spindle1.timer.freq_hz = (uint32_t)pwm_spindle1.config->cfg.pwm_freq;
+        if(pwm_spindle1.timer.freq_hz <= 100) {
+#if SOC_LEDC_TIMER_BIT_WIDE_NUM > 14
+            if(pwm_spindle1.timer.duty_resolution != LEDC_TIMER_16_BIT) {
+                pwm_spindle1.timer.duty_resolution = LEDC_TIMER_16_BIT;
+                ledc_timer_config(&pwm_spindle1.timer);
+            }
+#else
+            if(pwm_spindle1.timer.duty_resolution != LEDC_TIMER_14_BIT) {
+                pwm_spindle1.timer.duty_resolution = LEDC_TIMER_14_BIT;
+                ledc_timer_config(&pwm_spindle1.timer);
+            }
+#endif
+        } else if(pwm_spindle1.timer.duty_resolution != LEDC_TIMER_10_BIT) {
+            pwm_spindle1.timer.duty_resolution = LEDC_TIMER_10_BIT;
+            ledc_timer_config(&pwm_spindle1.timer);
+        }
+    }
+
+    pwm_spindle1.pwm_max_value = (1UL << pwm_spindle1.timer.duty_resolution) - 1;
+    pwm_spindle1.spindle_pwm.offset = (pwm_spindle1.config->cfg.invert.pwm ? -1 : 1);
+
+    if(spindle_precompute_pwm_values(spindle, &pwm_spindle1.spindle_pwm, &pwm_spindle1.config->cfg, pwm_spindle1.pwm_max_value * pwm_spindle1.config->cfg.pwm_freq)) {
 
         spindle->esp32_off = spindle1Off;
         spindle->set_state = spindle1SetStateVariable;
-
-        if(pwm_spindle1.timer.freq_hz != (uint32_t)pwm_spindle1.config->cfg.pwm_freq) {
-            pwm_spindle1.timer.freq_hz = (uint32_t)pwm_spindle1.config->cfg.pwm_freq;
-            if(pwm_spindle1.timer.freq_hz <= 100) {
-#if SOC_LEDC_TIMER_BIT_WIDE_NUM > 14
-                if(pwm_spindle1.timer.duty_resolution != LEDC_TIMER_16_BIT) {
-                    pwm_spindle1.timer.duty_resolution = LEDC_TIMER_16_BIT;
-                    ledc_timer_config(&pwm_spindle1.timer);
-                }
-#else
-                if(pwm_spindle1.timer.duty_resolution != LEDC_TIMER_14_BIT) {
-                    pwm_spindle1.timer.duty_resolution = LEDC_TIMER_14_BIT;
-                    ledc_timer_config(&pwm_spindle1.timer);
-                }
-#endif
-            } else if(pwm_spindle1.timer.duty_resolution != LEDC_TIMER_10_BIT) {
-                pwm_spindle1.timer.duty_resolution = LEDC_TIMER_10_BIT;
-                ledc_timer_config(&pwm_spindle1.timer);
-            }
-        }
-
-        pwm_spindle1.pwm_max_value = (1UL << pwm_spindle1.timer.duty_resolution) - 1;
-        pwm_spindle1.spindle_pwm.offset = (pwm_spindle1.config->cfg.invert.pwm ? -1 : 1);
-        spindle_precompute_pwm_values(spindle, &pwm_spindle1.spindle_pwm, &pwm_spindle1.config->cfg, pwm_spindle1.pwm_max_value * pwm_spindle1.config->cfg.pwm_freq);
-
         ledc_set_freq(pwm_spindle1.timer.speed_mode, pwm_spindle1.timer.timer_num, pwm_spindle1.timer.freq_hz);
 
 #if PPI_ENABLE
-            if(ppi_spindle == NULL && ppi_timer) {
-                spindle->pulse_on = spindlePulseOn;
-                ppi_spindle = spindle;
-                ppi_spindle_on = spindle1_on;
-                ppi_spindle_off = spindle1_off;
-            } else if(ppi_spindle != spindle)
-                spindle->pulse_on = NULL;
+        if(ppi_spindle == NULL && ppi_timer) {
+            spindle->pulse_on = spindlePulseOn;
+            ppi_spindle = spindle;
+            ppi_spindle_on = spindle1_on;
+            ppi_spindle_off = spindle1_off;
+        } else if(ppi_spindle != spindle)
+            spindle->pulse_on = NULL;
 #endif
     } else {
         if(spindle->context.pwm->flags.enable_out)
@@ -2759,34 +2774,9 @@ gpio_int_type_t map_intr_type (pin_irq_mode_t mode)
 }
 
 // Configures perhipherals when settings are initialized or changed
-static void settings_changed (settings_t *settings, settings_changed_flags_t changed)
+static void on_settings_changed (settings_t *settings, settings_changed_flags_t changed)
 {
     if(IOInitDone) {
-
-#ifdef LED_PIN
-
-    if(neopixel.leds == NULL || hal.rgb0.num_devices != settings->rgb_strip.length0) {
-
-        if(settings->rgb_strip.length0 == 0)
-            settings->rgb_strip.length0 = hal.rgb0.num_devices;
-        else
-            hal.rgb0.num_devices = settings->rgb_strip.length0;
-
-        if(neopixel.leds) {
-            free(neopixel.leds);
-            neopixel.leds = NULL;
-        }
-
-        if(hal.rgb0.num_devices) {
-            neopixel.num_bytes = hal.rgb0.num_devices * 3;
-            if((neopixel.leds = calloc(neopixel.num_bytes, sizeof(uint8_t))) == NULL)
-                hal.rgb0.num_devices = 0;
-        }
-
-        neopixel.num_leds = hal.rgb0.num_devices;
-    }
-
-#endif
 
 #if DRIVER_SPINDLE_ENABLE & SPINDLE_PWM
         if(changed.spindle) {
@@ -2801,8 +2791,8 @@ static void settings_changed (settings_t *settings, settings_changed_flags_t cha
         if(!bluetooth_ok)
             bluetooth_ok = bluetooth_start_local();
   #if MPG_ENABLE == 2 && MPG_STREAM == 20
-		if(bluetooth_ok && !hal.driver_cap.mpg_mode)
-			hal.driver_cap.mpg_mode = stream_mpg_register(stream_open_instance(MPG_STREAM, 115200, NULL, NULL), false, stream_mpg_check_enable);
+        if(bluetooth_ok && !hal.driver_cap.mpg_mode)
+            hal.driver_cap.mpg_mode = stream_mpg_register(stream_open_instance(MPG_STREAM, 115200, NULL, NULL), false, stream_mpg_check_enable);
   #endif
 #endif
 
@@ -3183,138 +3173,6 @@ static char *sdcard_mount (FATFS **fs)
 
 #endif // SDCARD_ENABLE
 
-#ifdef LED_PIN
-
-//    https://github.com/adafruit/Adafruit_NeoPixel/blob/master/esp.c
-
-#ifndef NEOPIXELS_NUM
-#define NEOPIXELS_NUM 0
-#endif
-
-#if CONFIG_IDF_TARGET_ESP32S3
-static rmt_config_t neo_config = RMT_DEFAULT_CONFIG_TX(LED_PIN, 3);
-#else
-static rmt_config_t neo_config = RMT_DEFAULT_CONFIG_TX(LED_PIN, 7);
-#endif
-
-#define WS2812_T0H_NS (450)
-#define WS2812_T0L_NS (850)
-#define WS2812_T1H_NS (800)
-#define WS2812_T1L_NS (450)
-/*
-#define WS2812_T0H_NS (350)
-#define WS2812_T0L_NS (1000)
-#define WS2812_T1H_NS (1000)
-#define WS2812_T1L_NS (350)
-
-#define WS2812_T0H_NS (500)
-#define WS2812_T0L_NS (2000)
-#define WS2812_T1H_NS (1200)
-#define WS2812_T1L_NS (1300)
-*/
-
-static uint32_t t0h_ticks = 0, t1h_ticks = 0, t0l_ticks = 0, t1l_ticks = 0;
-
-static void IRAM_ATTR ws2812_rmt_adapter (const void *src, rmt_item32_t *dest, size_t src_size,
-                                           size_t wanted_num, size_t *translated_size, size_t *item_num)
-{
-    const rmt_item32_t bit0 = {{{ t0h_ticks, 1, t0l_ticks, 0 }}}; //Logical 0
-    const rmt_item32_t bit1 = {{{ t1h_ticks, 1, t1l_ticks, 0 }}}; //Logical 1
-
-    rgb_color_t color = {0};
-    size_t size = 0, num = 0;
-    uint8_t *psrc = (uint8_t *)src, bitmask;
-
-    if(!(src == NULL || dest == NULL)) {
-        while(size < src_size && num < wanted_num) {
-
-            color.G = *psrc++;
-            color.R = *psrc++;
-            color.B = *psrc++;
-            color = rgb_set_intensity(color, neopixel.intensity);
-
-            bitmask = 0b10000000;
-            do {
-                dest->val = color.G & bitmask ? bit1.val : bit0.val;
-                dest++;
-            } while(bitmask >>= 1);
-
-            bitmask = 0b10000000;
-            do {
-                dest->val = color.R & bitmask ? bit1.val : bit0.val;
-                dest++;
-            } while(bitmask >>= 1);
-
-            bitmask = 0b10000000;
-            do {
-                dest->val = color.B & bitmask ? bit1.val : bit0.val;
-                dest++;
-            } while(bitmask >>= 1);
-
-            num += 24;
-            size += 3;
-        }
-    }
-
-    *translated_size = size;
-    *item_num = num;
-}
-
-void _neopixels_write (void)
-{
-    uint8_t *buf = neopixel.leds;
-    size_t size = neopixel.num_bytes;
-
-#if CONFIG_IDF_TARGET_ESP32S3
-    if(buf) do {
-        rmt_write_sample(neo_config.channel, buf, size > 3 ? 3 : size, true);
-        buf += size > 3 ? 3 : size;
-        size -= size > 3 ? 3 : size;
-    } while(size);
-#else
-    if(buf) do {
-        rmt_write_sample(neo_config.channel, buf, size > 6 ? 6 : size, true);
-        buf += size > 6 ? 6 : size;
-        size -= size > 6 ? 6 : size;
-    } while(size);
-#endif
-}
-
-void neopixels_write (void)
-{
-	if(neopixel.num_bytes > 1)
-		_neopixels_write();
-}
-
-static void neopixel_out_masked (uint16_t device, rgb_color_t color, rgb_color_mask_t mask)
-{
-    if(neopixel.num_leds && device < neopixel.num_leds) {
-
-        rgb_1bpp_assign(&neopixel.leds[device * 3], color, mask);
-
-        if(neopixel.num_leds == 1)
-        	_neopixels_write();
-    }
-}
-
-static void neopixel_out (uint16_t device, rgb_color_t color)
-{
-    neopixel_out_masked(device, color, (rgb_color_mask_t){ .mask = 0xFF });
-}
-
-uint8_t neopixels_set_intensity (uint8_t value)
-{
-    uint8_t prev = neopixel.intensity;
-
-    if(neopixel.intensity != value) {
-        neopixel.intensity = value;
-        _neopixels_write();
-    }
-
-    return prev;
-}
-
-#endif // LED_PIN
 
 // Initializes MCU peripherals for grblHAL use
 static bool driver_setup (settings_t *settings)
@@ -3360,7 +3218,7 @@ static bool driver_setup (settings_t *settings)
     uint32_t idx;
     for(idx = 0; idx < (N_AXIS + N_GANGED); idx++) {
 #ifndef Z_STEP_PIN
-    	if(idx != Z_AXIS)
+        if(idx != Z_AXIS)
 #endif
         rmt_set_source_clk(idx, RMT_BASECLK_APB);
     }
@@ -3400,7 +3258,7 @@ static bool driver_setup (settings_t *settings)
     idx = sizeof(outputpin) / sizeof(output_signal_t);
     do {
         idx--;
-        if(outputpin[idx].group == PinGroup_MotorChipSelect || outputpin[idx].group == PinGroup_MotorUART) {
+        if(outputpin[idx].group == PinGroup_MotorChipSelect || outputpin[idx].group == PinGroup_MotorUART || outputpin[idx].group == PinGroup_SPICS) {
 #if USE_I2S_OUT
             if(outputpin[idx].type == Pin_I2S)
                 DIGITAL_OUT(outputpin[idx].pin, 1);
@@ -3467,7 +3325,7 @@ static bool driver_setup (settings_t *settings)
 
     IOInitDone = settings->version.id == 23;
 
-    hal.settings_changed(settings, (settings_changed_flags_t){0});
+    grbl.on_settings_changed(settings, (settings_changed_flags_t){0});
     hal.stepper.go_idle(true);
 
 #if USE_I2S_OUT && defined(SPINDLE_PWM_PIN)
@@ -3491,6 +3349,9 @@ static bool driver_setup (settings_t *settings)
 #endif // SDCARD_ENABLE
 
 #if ETHERNET_ENABLE
+  #if WIFI_ENABLE
+    if((hal.driver_cap.ethernet &= setting_get_int_value(setting_get_details(Setting_WifiMode, NULL), 0) == WiFiMode_NULL))
+  #endif
     enet_start();
 #endif
 
@@ -3556,7 +3417,7 @@ bool driver_init (void)
 #else
     hal.info = "ESP32";
 #endif
-    hal.driver_version = "260204";
+    hal.driver_version = "260811";
     hal.driver_url = GRBL_URL "/ESP32";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -3578,7 +3439,7 @@ bool driver_init (void)
     hal.timer.start = timerStart;
     hal.timer.stop = timerStop;
 
-    hal.settings_changed = settings_changed;
+    grbl.on_settings_changed = on_settings_changed;
 
 #if USE_I2S_OUT
     hal.step_us_min = I2S_OUT_USEC_PER_PULSE;
@@ -3640,7 +3501,26 @@ bool driver_init (void)
     grbl.on_execute_realtime = wdt_tickler;
 
 #if USB_SERIAL_CDC
+
     stream_connect(usb_serialInit());
+
+  #if CONFIG_IDF_TARGET_ESP32S3
+
+    // Register $BOOTLOADER bootloader command
+
+    static const sys_command_t boot_command_list[] = {
+        {"BOOTLOADER", enter_bootloader, { .noargs = On }, { .str = "enter ESP32 bootloader" } }
+    };
+
+    static sys_commands_t boot_commands = {
+        .n_commands = sizeof(boot_command_list) / sizeof(sys_command_t),
+        .commands = boot_command_list
+    };
+
+    system_register_commands(&boot_commands);
+
+  #endif
+
 #else
     if(!stream_connect_instance(SERIAL_STREAM, BAUD_RATE))
         while(true); // Cannot boot if no communication channel is available!
@@ -3663,7 +3543,7 @@ bool driver_init (void)
 
 #if NVSDATA_BUFFER_ENABLE
     if(hal.nvs.type != NVS_None)
-    	nvs_buffer_alloc(); // Reallocate memory block for NVS buffer
+        nvs_buffer_alloc(); // Reallocate memory block for NVS buffer
 #endif
 
 #if DRIVER_SPINDLE_ENABLE
@@ -3821,7 +3701,16 @@ bool driver_init (void)
 
 #endif // DRIVER_SPINDLE_ENABLE
 
-  // driver capabilities, used for announcing and negotiating (with the core) driver functionality
+#ifdef NEOPIXEL_RMT
+    extern void neopixel_rmt_init (void);
+    neopixel_rmt_init();
+#endif
+#ifdef NEOPIXEL_SPI
+    extern void neopixel_spi_init (void);
+    neopixel_spi_init();
+#endif
+
+    // driver capabilities, used for announcing and negotiating (with the core) driver functionality
 
 #ifdef COOLANT_FLOOD_PIN
     hal.coolant_cap.flood = On;
@@ -3909,46 +3798,7 @@ bool driver_init (void)
     aux_ctrl_claim_ports(aux_claim_explicit, NULL);
     aux_ctrl_claim_out_ports(aux_out_claim_explicit, NULL);
 
-#ifdef LED_PIN
 
-    neo_config.clk_div = 2;
-
-    rmt_config(&neo_config);
-    rmt_driver_install(neo_config.channel, 0, 0);
-
-    uint32_t counter_clk_hz = 0;
-
-    rmt_get_counter_clock(neo_config.channel, &counter_clk_hz);
-
-    // NS to tick converter
-    float ratio = (float)counter_clk_hz / 1e9;
-
-    t0h_ticks = (uint32_t)(ratio * WS2812_T0H_NS);
-    t0l_ticks = (uint32_t)(ratio * WS2812_T0L_NS);
-    t1h_ticks = (uint32_t)(ratio * WS2812_T1H_NS);
-    t1l_ticks = (uint32_t)(ratio * WS2812_T1L_NS);
-
-    // Initialize automatic timing translator
-    rmt_translator_init(neo_config.channel, ws2812_rmt_adapter);
-
-    hal.rgb0.out = neopixel_out;
-    hal.rgb0.out_masked = neopixel_out_masked;
-    hal.rgb0.set_intensity = neopixels_set_intensity;
-    hal.rgb0.write = neopixels_write;
-    hal.rgb0.num_devices = NEOPIXELS_NUM;
-    hal.rgb0.flags = (rgb_properties_t){ .is_blocking = On, .is_strip = On };
-    hal.rgb0.cap = (rgb_color_t){ .R = 255, .G = 255, .B = 255 };
-
-    const periph_pin_t neopixels = {
-        .function = Output_LED_Adressable,
-        .group = PinGroup_LED,
-        .pin = LED_PIN,
-        .mode = { .mask = PINMODE_OUTPUT }
-    };
-
-    hal.periph_port.register_pin(&neopixels);
-
-#endif
 
 #if TRINAMIC_SPI_ENABLE
     extern void tmc_spi_init (void);
@@ -3956,6 +3806,10 @@ bool driver_init (void)
 #elif TRINAMIC_UART_ENABLE
     extern void tmc_uart_init (void);
     tmc_uart_init();
+#endif
+
+#if ETHERNET_ENABLE
+    hal.driver_cap.ethernet = On;
 #endif
 
 #ifdef HAS_BOARD_INIT

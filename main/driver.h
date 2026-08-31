@@ -122,6 +122,7 @@ typedef struct {
 #endif
 
 #ifdef BOARD_CNC_BOOSTERPACK
+  #define PCA9654E_ENABLE 1
   #include "boards/cnc_boosterpack_map.h"
 #elif defined(BOARD_BDRING_V4)
   #include "boards/bdring_v4_map.h"
@@ -139,6 +140,8 @@ typedef struct {
   #include "boards/cnc3040_map.h"
 #elif defined(BOARD_CORGI)
   #include "boards/corgi_map.h"
+#elif defined(BOARD_SOURCERABBIT_RABBITBOARD_4_AXIS)
+  #include "sourcerabbit_rabbit_board_4-axis.h"
 #elif defined(BOARD_SOURCERABBIT_4AXIS) || defined(BOARD_SOURCERABBIT_4AXIS_12)
   #include "boards/sourcerabbit_4axis.h"
 #elif defined(BOARD_PROTONEER_3XX)
@@ -155,6 +158,8 @@ typedef struct {
   #include "boards/mks_tinybee_1_0_map.h"
 #elif defined(BOARD_PIBOT_I2S_6_AXIS)
   #include "boards/pibot_i2s_6_axis_map.h"
+#elif defined(BOARD_PIBOT_5_88_ULTRA)
+  #include "boards/pibot_5_88_ultra_map.h"
 #elif defined(BOARD_BLACKBOX_X32)
   #include "boards/BlackBoxX32_map.h"
 #elif defined(BOARD_ROOTCNC_V2)
@@ -171,10 +176,14 @@ typedef struct {
   #include "boards/btt_rodent_map.h"
 #elif defined(BOARD_MY_MACHINE)
   #include "boards/my_machine_map.h"
+#elif defined(BOARD_BLOX)
+  #include "boards/blox_map.h"
 #elif defined(BOARD_GENERIC_S3)
   #include "boards/generic_s3_map.h"
 #elif defined(BOARD_GENERIC_I2S_S3)
   #include "boards/generic_i2s_s3_map.h"
+#elif defined(BOARD_OOZNEST_CNC)
+  #include "boards/ooznest_cnc_map.h"
 #else // default board - NOTE: NOT FINAL VERSION!
  #ifndef WEB_BUILD
   #warning "Compiling for generic board!"
