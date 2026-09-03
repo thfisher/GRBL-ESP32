@@ -51,10 +51,13 @@
 #define BOARD_MY_MACHINE              			// Add my_machine_map.h in the boards directory before enabling this!
 
 #define MY_RCOG28V     0
-#define MY_ROUTER      1
+#define MY_ROUTER      0
 
 #if MY_RCOG28V && MY_ROUTER
 #error can only be router or mill
+#endif
+#if !MY_RCOG28V && !MY_ROUTER
+#error must define RCOG28V or ROUTER
 #endif
 
 // Configuration
@@ -88,6 +91,8 @@
 #if MY_RCOG28V
 #define WEBUI_ENABLE            3 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
 #define WIFI_ENABLE             1 //
+#define WIFI_SOFTAP             1 // Use Soft AP mode for WiFi.
+#define HTTP_ENABLE             1
 #endif
 #define BLUETOOTH_ENABLE        1 // Set to 1 for native radio, 2 for HC-05 module.
 #define SDCARD_ENABLE           2 // Run gcode programs from SD card. Set to 2 to enable YModem upload.
